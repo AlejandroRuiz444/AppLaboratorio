@@ -88,9 +88,13 @@ app/src/test/java/com/vitalab/app/OrdenTest.kt   # pruebas de la lógica del neg
 
 ## Capturas
 
-| Inicio | Exámenes | Mi orden | Agendar cita | Confirmación |
-|---|---|---|---|---|
-| ![Inicio](docs/capturas/inicio.png) | ![Exámenes](docs/capturas/examenes.png) | ![Mi orden](docs/capturas/orden.png) | ![Cita](docs/capturas/cita.png) | ![Confirmación](docs/capturas/confirmacion.png) |
+| Inicio | Búsqueda y orden | Mi orden con descuentos |
+|---|---|---|
+| <img src="docs/capturas/inicio.png" width="240"> | <img src="docs/capturas/examenes.png" width="240"> | <img src="docs/capturas/orden.png" width="240"> |
+
+| Validaciones del formulario | Domicilio y total | Cita confirmada | Próxima cita en Inicio |
+|---|---|---|---|
+| <img src="docs/capturas/cita_validacion.png" width="200"> | <img src="docs/capturas/cita.png" width="200"> | <img src="docs/capturas/confirmacion.png" width="200"> | <img src="docs/capturas/inicio_cita.png" width="200"> |
 
 ## Cómo ejecutar el proyecto
 
