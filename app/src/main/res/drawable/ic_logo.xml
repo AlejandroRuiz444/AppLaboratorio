@@ -1,0 +1,22 @@
+<!-- Logo VitaLab: matraz de laboratorio con una cruz médica -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="96dp"
+    android:height="96dp"
+    android:viewportWidth="96"
+    android:viewportHeight="96">
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M48,4a44,44 0,1 1,0 88a44,44 0,1 1,0 -88z" />
+    <path
+        android:fillColor="#006A6A"
+        android:pathData="M38,20h20v4h-3v14l15,26c2.5,4.5 -0.7,10 -5.8,10H31.8c-5.1,0 -8.3,-5.5 -5.8,-10L41,38V24h-3z" />
+    <path
+        android:fillColor="#4CDADA"
+        android:pathData="M31,56H65l4,7c1.6,3 -0.5,7 -4,7H31c-3.5,0 -5.6,-4 -4,-7z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M44,49a2.5,2.5 0,1 0,5 0a2.5,2.5 0,1 0,-5 0zM51,43a1.8,1.8 0,1 0,3.6 0a1.8,1.8 0,1 0,-3.6 0z" />
+    <path
+        android:fillColor="#B4441F"
+        android:pathData="M66,12h6v6h6v6h-6v6h-6v-6h-6v-6h6z" />
+</vector>

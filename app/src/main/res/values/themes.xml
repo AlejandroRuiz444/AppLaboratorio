@@ -1,0 +1,5 @@
+<resources>
+    <style name="Theme.VitaLab" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/vitalab_fondo</item>
+    </style>
+</resources>
