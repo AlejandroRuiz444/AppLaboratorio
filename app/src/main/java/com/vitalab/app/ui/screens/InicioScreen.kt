@@ -28,6 +28,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.ui.tooling.preview.Preview
+import com.vitalab.app.ui.theme.VitaLabTheme
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -188,5 +190,18 @@ private fun FilaIcono(icono: ImageVector, texto: String) {
         Icon(icono, contentDescription = null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(20.dp))
         Spacer(Modifier.width(8.dp))
         Text(texto, style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+fun InicioScreenPreview() {
+    VitaLabTheme {
+        InicioScreen(
+            cita = null,
+            examenesEnOrden = 0,
+            onVerExamenes = {},
+            onVerOrden = {}
+        )
     }
 }

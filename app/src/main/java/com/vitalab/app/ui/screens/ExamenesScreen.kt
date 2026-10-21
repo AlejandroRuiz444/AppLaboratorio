@@ -32,7 +32,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.vitalab.app.ui.theme.VitaLabTheme
 import com.vitalab.app.data.Categoria
 import com.vitalab.app.data.Examen
 import com.vitalab.app.data.catalogoExamenes
@@ -112,5 +114,17 @@ fun ExamenesScreen(orden: List<Examen>, onAgregarQuitar: (Examen) -> Unit, onVer
                 }
             }
         }
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+fun ExamenesScreenPreview() {
+    VitaLabTheme {
+        ExamenesScreen(
+            orden = emptyList(),
+            onAgregarQuitar = {},
+            onVerOrden = {}
+        )
     }
 }

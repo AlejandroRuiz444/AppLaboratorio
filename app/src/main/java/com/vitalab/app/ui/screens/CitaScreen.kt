@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
@@ -109,7 +110,7 @@ fun CitaScreen(
     val formularioValido = listOf(errorNombre, errorDocumento, errorTelefono, errorCorreo, errorDireccion).all { it == null } &&
         diaElegido != null && hora?.let { it in franjas } == true
 
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+    Column(Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState())) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 4.dp)) {
             IconButton(onClick = onVolver) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver a mi orden") }
             EncabezadoPantalla("Agendar toma de muestra", "${orden.size} examen(es) · ${formatoPesos(resumen.total)}")
