@@ -11,24 +11,36 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.path
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -37,11 +49,40 @@ import com.vitalab.app.data.Resumen
 import com.vitalab.app.data.formatoPesos
 import com.vitalab.app.data.textoEntrega
 
+/** "1 examen" / "3 exámenes": concordancia de número sin el "(es)" de los textos provisionales. */
+fun conteo(cantidad: Int, singular: String, plural: String) = "$cantidad ${if (cantidad == 1) singular else plural}"
+
+/** Gráfica de barras dibujada a mano: `material-icons-core` no trae ningún ícono de estadísticas. */
+val IconoEstadisticas: ImageVector by lazy {
+    ImageVector.Builder("Estadisticas", 24.dp, 24.dp, 24f, 24f).apply {
+        path(fill = SolidColor(Color.Black)) {
+            moveTo(5f, 9.2f); horizontalLineToRelative(3f); verticalLineTo(19f); horizontalLineTo(5f); close()
+            moveTo(10.6f, 5f); horizontalLineToRelative(2.8f); verticalLineToRelative(14f); horizontalLineToRelative(-2.8f); close()
+            moveTo(16.2f, 13f); horizontalLineTo(19f); verticalLineToRelative(6f); horizontalLineToRelative(-2.8f); close()
+        }
+    }.build()
+}
+
 @Composable
 fun EncabezadoPantalla(titulo: String, subtitulo: String, modifier: Modifier = Modifier) {
     Column(modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
         Text(titulo, style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.primary)
         Text(subtitulo, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/** Igual que [EncabezadoPantalla] pero con flecha para volver: pantallas de formulario o detalle. */
+@Composable
+fun EncabezadoConVolver(titulo: String, subtitulo: String, onVolver: () -> Unit, modifier: Modifier = Modifier) {
+    Row(
+        modifier.fillMaxWidth().padding(start = 4.dp, end = 16.dp, top = 4.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        IconButton(onClick = onVolver) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver") }
+        Column(Modifier.weight(1f)) {
+            Text(titulo, style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.primary)
+            Text(subtitulo, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
 }
 
@@ -58,41 +99,96 @@ fun Etiqueta(texto: String, alerta: Boolean = false) {
     }
 }
 
+/**
+ * Tarjeta de un examen del catálogo. Con `modoAdmin` añade las acciones de administración (editar y
+ * desactivar/reactivar); un examen desactivado se ve atenuado y ya no se puede agregar a la orden.
+ */
 @Composable
-fun ExamenCard(examen: Examen, enOrden: Boolean, onAgregarQuitar: () -> Unit, modifier: Modifier = Modifier) {
+fun ExamenCard(
+    examen: Examen,
+    enOrden: Boolean,
+    onAgregarQuitar: () -> Unit,
+    modifier: Modifier = Modifier,
+    modoAdmin: Boolean = false,
+    onEditar: () -> Unit = {},
+    onCambiarActivo: () -> Unit = {}
+) {
     val c = MaterialTheme.colorScheme
+    val inactivo = !examen.activo
     Card(
         modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = if (enOrden) c.primaryContainer else c.surfaceContainerHighest),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        colors = CardDefaults.cardColors(
+            containerColor = when {
+                inactivo -> c.surfaceVariant
+                enOrden -> c.primaryContainer
+                else -> c.surfaceContainerHighest
+            }
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (inactivo) 0.dp else 2.dp)
     ) {
         Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.Top) {
                 Column(Modifier.weight(1f)) {
-                    Text(examen.categoria.etiqueta.uppercase(), style = MaterialTheme.typography.labelSmall, color = c.secondary)
+                    Text(examen.categoria.etiqueta.uppercase(), style = MaterialTheme.typography.labelSmall, color = if (inactivo) c.onSurfaceVariant else c.secondary)
                     Text(examen.nombre, style = MaterialTheme.typography.titleMedium)
                 }
-                Text(formatoPesos(examen.precio), style = MaterialTheme.typography.titleMedium, color = c.primary, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.width(12.dp))
+                Text(
+                    formatoPesos(examen.precio),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = if (inactivo) c.onSurfaceVariant else c.primary,
+                    fontWeight = FontWeight.Bold
+                )
             }
             Text(examen.descripcion, style = MaterialTheme.typography.bodyMedium, color = c.onSurfaceVariant)
             Spacer(Modifier.size(12.dp))
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Etiqueta(if (examen.ayunoHoras > 0) "Ayuno ${examen.ayunoHoras} h" else "Sin ayuno", alerta = examen.ayunoHoras > 0)
                 Etiqueta(textoEntrega(examen.horasEntrega))
+                if (inactivo) Etiqueta("Desactivado")
                 Spacer(Modifier.weight(1f))
                 val relleno = PaddingValues(horizontal = 12.dp)
-                if (enOrden) {
-                    OutlinedButton(onClick = onAgregarQuitar, contentPadding = relleno) {
+                // Un examen desactivado no se puede pedir: solo se administra (fila de abajo).
+                if (!inactivo && enOrden) {
+                    OutlinedButton(
+                        onClick = onAgregarQuitar,
+                        contentPadding = relleno,
+                        modifier = Modifier.semantics { contentDescription = "Quitar ${examen.nombre} de la orden" }
+                    ) {
                         Icon(Icons.Filled.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(4.dp))
                         Text("Quitar")
                     }
-                } else {
-                    Button(onClick = onAgregarQuitar, contentPadding = relleno) {
+                } else if (!inactivo) {
+                    Button(
+                        onClick = onAgregarQuitar,
+                        contentPadding = relleno,
+                        modifier = Modifier.semantics { contentDescription = "Agregar ${examen.nombre} a la orden" }
+                    ) {
                         Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(4.dp))
                         Text("Agregar")
                     }
+                }
+            }
+            if (modoAdmin) {
+                HorizontalDivider(Modifier.padding(top = 8.dp), color = c.outlineVariant)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(
+                        onClick = onEditar,
+                        modifier = Modifier.semantics { contentDescription = "Editar ${examen.nombre}" }
+                    ) {
+                        Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Editar")
+                    }
+                    TextButton(
+                        onClick = onCambiarActivo,
+                        colors = if (inactivo) ButtonDefaults.textButtonColors() else ButtonDefaults.textButtonColors(contentColor = c.error),
+                        modifier = Modifier.semantics {
+                            contentDescription = (if (inactivo) "Reactivar " else "Desactivar ") + examen.nombre
+                        }
+                    ) { Text(if (inactivo) "Reactivar" else "Desactivar") }
                 }
             }
         }
@@ -164,7 +260,11 @@ fun EstadoVacio(icono: ImageVector, mensaje: String, textoBoton: String, onClick
     }
 }
 
-/** Campo de texto que muestra su mensaje de error debajo cuando corresponde. */
+/**
+ * Campo de texto que muestra su mensaje de error debajo cuando corresponde.
+ * Los parámetros desde `modifier` son opcionales: sirven a los formularios que necesitan prefijo ("$"),
+ * sufijo ("h"), texto de ayuda o varias líneas. El ícono ahora puede omitirse.
+ */
 @Composable
 fun CampoValidado(
     valor: String,
@@ -172,19 +272,32 @@ fun CampoValidado(
     etiqueta: String,
     error: String?,
     mostrarError: Boolean,
-    icono: ImageVector,
-    teclado: KeyboardType = KeyboardType.Text
+    icono: ImageVector? = null,
+    teclado: KeyboardType = KeyboardType.Text,
+    modifier: Modifier = Modifier,
+    ayuda: String? = null,
+    prefijo: String? = null,
+    sufijo: String? = null,
+    minLineas: Int = 1,
+    maxLineas: Int = 1,
+    capitalizacion: KeyboardCapitalization = KeyboardCapitalization.None,
+    imeAction: ImeAction = ImeAction.Default
 ) {
     val conError = mostrarError && error != null
+    val textoApoyo = if (conError) error else ayuda
     OutlinedTextField(
         value = valor,
         onValueChange = onCambio,
         label = { Text(etiqueta) },
-        leadingIcon = { Icon(icono, contentDescription = null) },
+        leadingIcon = if (icono != null) ({ Icon(icono, contentDescription = null) }) else null,
+        prefix = if (prefijo != null) ({ Text(prefijo) }) else null,
+        suffix = if (sufijo != null) ({ Text(sufijo) }) else null,
         isError = conError,
-        supportingText = if (conError) ({ Text(error.orEmpty()) }) else null,
-        keyboardOptions = KeyboardOptions(keyboardType = teclado),
-        singleLine = true,
-        modifier = Modifier.fillMaxWidth()
+        supportingText = if (textoApoyo != null) ({ Text(textoApoyo) }) else null,
+        keyboardOptions = KeyboardOptions(keyboardType = teclado, capitalization = capitalizacion, imeAction = imeAction),
+        singleLine = maxLineas == 1,
+        minLines = minLineas,
+        maxLines = maxLineas,
+        modifier = modifier.fillMaxWidth()
     )
 }

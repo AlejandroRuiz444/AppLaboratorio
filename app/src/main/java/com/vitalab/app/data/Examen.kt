@@ -1,5 +1,8 @@
 package com.vitalab.app.data
 
+import androidx.room.Entity
+import androidx.room.PrimaryKey
+
 enum class Categoria(val etiqueta: String) {
     HEMATOLOGIA("Hematología"),
     QUIMICA("Química sanguínea"),
@@ -8,9 +11,13 @@ enum class Categoria(val etiqueta: String) {
     INFECCIOSAS("Infecciosas")
 }
 
-/** Información principal del negocio: un examen que ofrece el laboratorio. */
+/**
+ * Información principal del negocio: un examen que ofrece el laboratorio.
+ * El borrado es lógico (`activo = false`): así las citas viejas siguen apuntando a un examen que existe.
+ */
+@Entity(tableName = "examenes")
 data class Examen(
-    val id: Int,
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val nombre: String,
     val categoria: Categoria,
     val precio: Int,
@@ -18,9 +25,11 @@ data class Examen(
     val muestra: String,
     val ayunoHoras: Int,
     val horasEntrega: Int,
-    val indicacion: String = ""
+    val indicacion: String = "",
+    val activo: Boolean = true
 )
 
+/** Catálogo inicial: se siembra una sola vez, al crear la base de datos (ver AppDatabase). */
 val catalogoExamenes = listOf(
     Examen(1, "Cuadro hemático", Categoria.HEMATOLOGIA, 25_000,
         "Evalúa glóbulos rojos, glóbulos blancos y plaquetas.", "Sangre", 0, 4),

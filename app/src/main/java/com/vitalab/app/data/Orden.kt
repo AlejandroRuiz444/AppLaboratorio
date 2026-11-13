@@ -1,6 +1,7 @@
 package com.vitalab.app.data
 
 import java.time.DayOfWeek
+import java.text.Normalizer
 import java.time.LocalDate
 
 const val MINIMO_PAQUETE = 3
@@ -15,28 +16,18 @@ data class Resumen(
     val total: Int get() = subtotal - descuentoPaquete - descuentoAdultoMayor + recargoDomicilio
 }
 
-data class Cita(
-    val codigo: String,
-    val paciente: String,
-    val documento: String,
-    val telefono: String,
-    val correo: String,
-    val fecha: LocalDate,
-    val hora: String,
-    val domicilio: Boolean,
-    val direccion: String,
-    val examenes: List<Examen>,
-    val resumen: Resumen
-)
-
 /** Paquete de 3+ exámenes: 10%. Adulto mayor: 15%. Toma a domicilio: recargo fijo. */
-fun calcularResumen(examenes: List<Examen>, adultoMayor: Boolean, domicilio: Boolean): Resumen {
-    val subtotal = examenes.sumOf { it.precio }
+fun calcularResumen(examenes: List<Examen>, adultoMayor: Boolean, domicilio: Boolean): Resumen =
+    calcularResumenDePrecios(examenes.map { it.precio }, adultoMayor, domicilio)
+
+/** Misma regla sobre precios sueltos: sirve para recalcular una cita con los precios que se congelaron al agendar. */
+fun calcularResumenDePrecios(precios: List<Int>, adultoMayor: Boolean, domicilio: Boolean): Resumen {
+    val subtotal = precios.sum()
     return Resumen(
         subtotal = subtotal,
-        descuentoPaquete = if (examenes.size >= MINIMO_PAQUETE) subtotal * 10 / 100 else 0,
+        descuentoPaquete = if (precios.size >= MINIMO_PAQUETE) subtotal * 10 / 100 else 0,
         descuentoAdultoMayor = if (adultoMayor) subtotal * 15 / 100 else 0,
-        recargoDomicilio = if (domicilio && examenes.isNotEmpty()) RECARGO_DOMICILIO else 0
+        recargoDomicilio = if (domicilio && precios.isNotEmpty()) RECARGO_DOMICILIO else 0
     )
 }
 
@@ -78,6 +69,29 @@ fun validarTelefono(v: String) = if (!v.matches(Regex("3\\d{9}"))) "Celular de 1
 fun validarCorreo(v: String) =
     if (!v.trim().matches(Regex("[\\w.+-]+@[\\w-]+(\\.[\\w-]+)+"))) "Correo electrónico no válido" else null
 fun validarDireccion(v: String) = if (v.trim().length < 6) "Escribe la dirección completa" else null
+
+// Validaciones del formulario de exámenes (administración del catálogo).
+fun validarNombreExamen(v: String) = if (v.trim().length < 3) "El nombre debe tener al menos 3 letras" else null
+fun validarTextoObligatorio(v: String, campo: String) = if (v.isBlank()) "Escribe $campo" else null
+fun validarPrecio(v: String): String? {
+    val n = v.trim().toIntOrNull()
+    return if (n == null || n !in 1..10_000_000) "Precio en pesos, mayor que 0" else null
+}
+fun validarHorasAyuno(v: String): String? {
+    val n = v.trim().toIntOrNull()
+    return if (n == null || n !in 0..24) "Horas de ayuno entre 0 y 24" else null
+}
+fun validarHorasEntrega(v: String): String? {
+    val n = v.trim().toIntOrNull()
+    return if (n == null || n !in 1..720) "Horas de entrega entre 1 y 720" else null
+}
+
+/** Búsqueda sin distinguir mayúsculas ni tildes: "angel" encuentra "Ángel". */
+fun coincideBusqueda(texto: String, consulta: String): Boolean =
+    texto.sinTildes().contains(consulta.trim().sinTildes(), ignoreCase = true)
+
+private fun String.sinTildes(): String =
+    Normalizer.normalize(this, Normalizer.Form.NFD).replace(Regex("\\p{M}+"), "")
 
 // Formatos de texto
 fun formatoPesos(valor: Int): String =

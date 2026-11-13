@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Phone
@@ -28,58 +29,97 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.ui.tooling.preview.Preview
-import com.vitalab.app.ui.theme.VitaLabTheme
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vitalab.app.R
-import com.vitalab.app.data.Cita
 import com.vitalab.app.data.Examen
+import com.vitalab.app.data.calcularResumen
 import com.vitalab.app.data.catalogoExamenes
 import com.vitalab.app.data.formatoFecha
 import com.vitalab.app.data.formatoPesos
 import com.vitalab.app.data.indicacionesPreparacion
+import com.vitalab.app.data.local.Cita
+import com.vitalab.app.data.local.CitaCompleta
+import com.vitalab.app.data.local.CitaExamen
+import com.vitalab.app.data.local.Paciente
 import com.vitalab.app.ui.components.Etiqueta
+import com.vitalab.app.ui.components.IconoEstadisticas
+import com.vitalab.app.ui.components.conteo
+import com.vitalab.app.ui.theme.VitaLabTheme
+import com.vitalab.app.viewmodel.InicioUiState
+import com.vitalab.app.viewmodel.InicioViewModel
+import java.time.LocalDate
 
-private val destacados = catalogoExamenes.filter { it.id in listOf(1, 2, 3, 8, 6) }
+/** Pantalla de inicio: marca, próxima cita (de Room), accesos rápidos, más solicitados y datos de la sede. */
+@Composable
+fun InicioScreen(
+    viewModel: InicioViewModel,
+    onVerExamenes: () -> Unit,
+    onVerOrden: () -> Unit,
+    onVerCita: (citaId: Long) -> Unit,
+    onVerEstadisticas: () -> Unit
+) {
+    val estado by viewModel.uiState.collectAsStateWithLifecycle()
+    InicioContenido(estado, onVerExamenes, onVerOrden, onVerCita, onVerEstadisticas)
+}
 
 @Composable
-fun InicioScreen(cita: Cita?, examenesEnOrden: Int, onVerExamenes: () -> Unit, onVerOrden: () -> Unit) {
+internal fun InicioContenido(
+    estado: InicioUiState,
+    onVerExamenes: () -> Unit,
+    onVerOrden: () -> Unit,
+    onVerCita: (Long) -> Unit,
+    onVerEstadisticas: () -> Unit
+) {
+    val cita = estado.proximaCita
+    val examenesEnOrden = estado.examenesEnOrden
     LazyColumn(
         Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item { EncabezadoMarca() }
-        item {
-            Box(Modifier.padding(horizontal = 16.dp)) {
-                if (cita != null) TarjetaProximaCita(cita) else TarjetaInvitacion(onVerExamenes)
+        // Mientras Room responde no se dibuja ninguna de las dos tarjetas, para que la invitación no parpadee antes de la cita.
+        if (!estado.cargando) {
+            item {
+                Box(Modifier.padding(horizontal = 16.dp)) {
+                    if (cita != null) TarjetaProximaCita(cita, onVerCita) else TarjetaInvitacion(onVerExamenes)
+                }
             }
         }
         item {
-            Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                AccesoRapido(Icons.Filled.Search, "Exámenes", "${catalogoExamenes.size} disponibles", onVerExamenes, Modifier.weight(1f))
-                AccesoRapido(
-                    Icons.Filled.ShoppingCart, "Mi orden",
-                    if (examenesEnOrden == 0) "Sin exámenes" else "$examenesEnOrden examen(es)",
-                    onVerOrden, Modifier.weight(1f)
-                )
+            Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    AccesoRapido(Icons.Filled.Search, "Exámenes", "${estado.totalExamenes} disponibles", onVerExamenes, Modifier.weight(1f))
+                    AccesoRapido(
+                        Icons.Filled.ShoppingCart, "Mi orden",
+                        if (examenesEnOrden == 0) "Sin exámenes" else conteo(examenesEnOrden, "examen", "exámenes"),
+                        onVerOrden, Modifier.weight(1f)
+                    )
+                }
+                AccesoEstadisticas(onVerEstadisticas)
             }
         }
-        item {
-            Text("Más solicitados", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 16.dp))
-            Spacer(Modifier.size(8.dp))
-            LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                items(destacados, key = { it.id }) { TarjetaDestacado(it, onVerExamenes) }
+        if (estado.destacados.isNotEmpty()) {
+            item {
+                Text("Destacados", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 16.dp))
+                Spacer(Modifier.size(8.dp))
+                LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    items(estado.destacados, key = { it.id }) { TarjetaDestacado(it, onVerExamenes) }
+                }
             }
         }
         item { TarjetaSede(Modifier.padding(horizontal = 16.dp)) }
@@ -108,10 +148,13 @@ private fun EncabezadoMarca() {
 }
 
 @Composable
-private fun TarjetaProximaCita(cita: Cita) {
+private fun TarjetaProximaCita(completa: CitaCompleta, onVerCita: (Long) -> Unit) {
+    val cita = completa.cita
+    val c = MaterialTheme.colorScheme
     Card(
-        Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+        onClick = { onVerCita(cita.id) },
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = c.primaryContainer)
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -121,15 +164,22 @@ private fun TarjetaProximaCita(cita: Cita) {
                 Spacer(Modifier.weight(1f))
                 Etiqueta(cita.codigo)
             }
-            Text("${formatoFecha(cita.fecha)} · ${cita.hora}", style = MaterialTheme.typography.titleLarge)
+            Text("${formatoFecha(cita.fechaLocal)} · ${cita.hora}", style = MaterialTheme.typography.titleLarge)
             Text(if (cita.domicilio) "Toma a domicilio: ${cita.direccion}" else "En sede principal", style = MaterialTheme.typography.bodyMedium)
-            Text("${cita.examenes.size} examen(es) · ${formatoPesos(cita.resumen.total)}", style = MaterialTheme.typography.bodyMedium)
             Text(
-                indicacionesPreparacion(cita.examenes).first(),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.tertiary,
-                fontWeight = FontWeight.Medium
+                "${conteo(completa.examenes.size, "examen", "exámenes")} · ${formatoPesos(cita.total)}",
+                style = MaterialTheme.typography.bodyMedium
             )
+            val aviso = indicacionesPreparacion(completa.examenes).firstOrNull()
+            if (aviso != null) {
+                Surface(color = c.tertiaryContainer, contentColor = c.onTertiaryContainer, shape = MaterialTheme.shapes.small) {
+                    Text(aviso, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, modifier = Modifier.padding(8.dp))
+                }
+            }
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.End) {
+                Text("Ver detalle", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
+            }
         }
     }
 }
@@ -157,6 +207,24 @@ private fun AccesoRapido(icono: ImageVector, titulo: String, subtitulo: String, 
             Spacer(Modifier.size(8.dp))
             Text(titulo, style = MaterialTheme.typography.titleMedium)
             Text(subtitulo, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun AccesoEstadisticas(onClick: () -> Unit) {
+    Card(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Icon(IconoEstadisticas, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
+            Column(Modifier.weight(1f)) {
+                Text("Estadísticas", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "Citas, ingresos y exámenes más pedidos",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -193,15 +261,43 @@ private fun FilaIcono(icono: ImageVector, texto: String) {
     }
 }
 
+/** Datos de muestra solo para las vistas previas. */
+internal fun citaDeEjemplo(): CitaCompleta {
+    val examenes = catalogoExamenes.take(3)
+    val resumen = calcularResumen(examenes, adultoMayor = false, domicilio = true)
+    val cita = Cita(
+        id = 1, codigo = "VL-4821", pacienteId = 1, fecha = LocalDate.now().plusDays(2).toEpochDay(), hora = "7:00 a.m.",
+        domicilio = true, direccion = "Calle 100 # 15-20", adultoMayor = false, subtotal = resumen.subtotal,
+        descuentoPaquete = resumen.descuentoPaquete, descuentoAdultoMayor = resumen.descuentoAdultoMayor,
+        recargoDomicilio = resumen.recargoDomicilio
+    )
+    return CitaCompleta(
+        cita, Paciente(id = 1, nombre = "Marta Ruiz", documento = "52123456", telefono = "3001112233", correo = "marta@correo.com"),
+        examenes, examenes.map { CitaExamen(1, it.id, it.precio) }
+    )
+}
+
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
-fun InicioScreenPreview() {
+private fun InicioConCitaPreview() {
     VitaLabTheme {
-        InicioScreen(
-            cita = null,
-            examenesEnOrden = 0,
-            onVerExamenes = {},
-            onVerOrden = {}
+        InicioContenido(
+            InicioUiState(
+                proximaCita = citaDeEjemplo(), examenesEnOrden = 2, totalExamenes = 11,
+                destacados = catalogoExamenes.take(4), cargando = false
+            ),
+            onVerExamenes = {}, onVerOrden = {}, onVerCita = {}, onVerEstadisticas = {}
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun InicioSinCitaPreview() {
+    VitaLabTheme {
+        InicioContenido(
+            InicioUiState(totalExamenes = 11, destacados = catalogoExamenes.take(3), cargando = false),
+            onVerExamenes = {}, onVerOrden = {}, onVerCita = {}, onVerEstadisticas = {}
         )
     }
 }
